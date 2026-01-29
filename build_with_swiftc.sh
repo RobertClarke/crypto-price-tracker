@@ -53,7 +53,7 @@ cat > "$APP_BUNDLE/Contents/Info.plist" << EOF
         <false/>
         <key>NSExceptionDomains</key>
         <dict>
-            <key>api.binance.com</key>
+            <key>api.exchange.coinbase.com</key>
             <dict>
                 <key>NSExceptionAllowsInsecureHTTPLoads</key>
                 <false/>
@@ -62,25 +62,7 @@ cat > "$APP_BUNDLE/Contents/Info.plist" << EOF
                 <key>NSExceptionRequiresForwardSecrecy</key>
                 <false/>
             </dict>
-            <key>fapi.binance.com</key>
-            <dict>
-                <key>NSExceptionAllowsInsecureHTTPLoads</key>
-                <false/>
-                <key>NSExceptionMinimumTLSVersion</key>
-                <string>TLSv1.2</string>
-                <key>NSExceptionRequiresForwardSecrecy</key>
-                <false/>
-            </dict>
-            <key>stream.binance.com</key>
-            <dict>
-                <key>NSExceptionAllowsInsecureHTTPLoads</key>
-                <false/>
-                <key>NSExceptionMinimumTLSVersion</key>
-                <string>TLSv1.2</string>
-                <key>NSExceptionRequiresForwardSecrecy</key>
-                <false/>
-            </dict>
-            <key>fstream.binance.com</key>
+            <key>ws-feed.exchange.coinbase.com</key>
             <dict>
                 <key>NSExceptionAllowsInsecureHTTPLoads</key>
                 <false/>
