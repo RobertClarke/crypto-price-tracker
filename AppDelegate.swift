@@ -34,6 +34,14 @@ class AppDelegate: NSObject, NSApplicationDelegate, URLSessionWebSocketDelegate 
     var selectedCryptos: [String] = ["BTC-USD"]
     var selectedCrypto: String { selectedCryptos.first ?? "BTC-USD" }
     var reconnectTimer: Timer?
+    var healthCheckTimer: Timer?
+    var lastMessageTime: Date = Date()
+    var isConnected: Bool = false
+    
+    // Health check interval (seconds) - check every 30s
+    private let healthCheckInterval: TimeInterval = 30
+    // Consider connection stale if no message for this long (seconds)
+    private let staleConnectionThreshold: TimeInterval = 60
     
     // Known crypto names and emojis for popular coins
     private let knownCryptos: [String: (name: String, emoji: String)] = [
@@ -99,13 +107,83 @@ class AppDelegate: NSObject, NSApplicationDelegate, URLSessionWebSocketDelegate 
         setupStatusBar()
         print("📊 Status bar setup complete")
         
+        // Register for system wake notifications
+        registerForWakeNotifications()
+        
+        // Start health check timer
+        startHealthCheckTimer()
+        
         // Fetch available products from Coinbase, then connect
         fetchAvailableProducts()
+    }
+    
+    // MARK: - Auto Reconnect Logic
+    
+    private func registerForWakeNotifications() {
+        // Listen for system wake from sleep
+        NSWorkspace.shared.notificationCenter.addObserver(
+            self,
+            selector: #selector(systemDidWake),
+            name: NSWorkspace.didWakeNotification,
+            object: nil
+        )
+        
+        // Listen for network changes
+        NSWorkspace.shared.notificationCenter.addObserver(
+            self,
+            selector: #selector(systemDidWake),
+            name: NSWorkspace.sessionDidBecomeActiveNotification,
+            object: nil
+        )
+        
+        print("📡 Registered for system wake notifications")
+    }
+    
+    @objc private func systemDidWake(_ notification: Notification) {
+        print("💤 System woke from sleep - reconnecting...")
+        
+        // Small delay to allow network to stabilize
+        DispatchQueue.main.asyncAfter(deadline: .now() + 2.0) { [weak self] in
+            self?.forceReconnect()
+        }
+    }
+    
+    private func startHealthCheckTimer() {
+        healthCheckTimer?.invalidate()
+        healthCheckTimer = Timer.scheduledTimer(withTimeInterval: healthCheckInterval, repeats: true) { [weak self] _ in
+            self?.checkConnectionHealth()
+        }
+        print("🏥 Health check timer started (every \(Int(healthCheckInterval))s)")
+    }
+    
+    private func checkConnectionHealth() {
+        let timeSinceLastMessage = Date().timeIntervalSince(lastMessageTime)
+        
+        if !isConnected {
+            print("🔴 Health check: Not connected - attempting reconnect")
+            forceReconnect()
+        } else if timeSinceLastMessage > staleConnectionThreshold {
+            print("🟡 Health check: Connection stale (no message for \(Int(timeSinceLastMessage))s) - reconnecting")
+            forceReconnect()
+        } else {
+            print("🟢 Health check: OK (last message \(Int(timeSinceLastMessage))s ago)")
+        }
+    }
+    
+    private func forceReconnect() {
+        isConnected = false
+        webSocketTask?.cancel(with: .goingAway, reason: nil)
+        
+        // Fetch fresh prices and reconnect
+        fetchSelectedPrices()
+        connectToWebSocket()
     }
     
     func applicationWillTerminate(_ aNotification: Notification) {
         webSocketTask?.cancel(with: .goingAway, reason: nil)
         reconnectTimer?.invalidate()
+        healthCheckTimer?.invalidate()
+        NSWorkspace.shared.notificationCenter.removeObserver(self)
     }
     
     private func setupStatusBar() {
@@ -373,12 +451,19 @@ class AppDelegate: NSObject, NSApplicationDelegate, URLSessionWebSocketDelegate 
     
     func urlSession(_ session: URLSession, webSocketTask: URLSessionWebSocketTask, didOpenWithProtocol protocol: String?) {
         print("✅ Coinbase WebSocket connected!")
+        DispatchQueue.main.async {
+            self.isConnected = true
+            self.lastMessageTime = Date()
+        }
         sendSubscription()
         receiveMessage()
     }
     
     func urlSession(_ session: URLSession, webSocketTask: URLSessionWebSocketTask, didCloseWith closeCode: URLSessionWebSocketTask.CloseCode, reason: Data?) {
         print("❌ WebSocket closed with code: \(closeCode)")
+        DispatchQueue.main.async {
+            self.isConnected = false
+        }
         scheduleReconnect()
     }
     
@@ -419,6 +504,9 @@ class AppDelegate: NSObject, NSApplicationDelegate, URLSessionWebSocketDelegate 
             switch result {
             case .failure(let error):
                 print("WebSocket receive error: \(error)")
+                DispatchQueue.main.async {
+                    self?.isConnected = false
+                }
                 self?.scheduleReconnect()
                 
             case .success(let message):
@@ -440,6 +528,11 @@ class AppDelegate: NSObject, NSApplicationDelegate, URLSessionWebSocketDelegate 
     
     private func processCoinbaseMessage(_ message: String) {
         guard let data = message.data(using: .utf8) else { return }
+        
+        // Update last message time for health check
+        DispatchQueue.main.async {
+            self.lastMessageTime = Date()
+        }
         
         do {
             if let json = try JSONSerialization.jsonObject(with: data) as? [String: Any] {
