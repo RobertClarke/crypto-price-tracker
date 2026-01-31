@@ -77,11 +77,21 @@ open "dist/Bitcoin Price Tracker.app"
 7. Auto-reconnects on connection failures
 
 ### WebSocket Integration
-- **Endpoint**: `wss://stream.binance.com:9443/stream?streams=btcusdt@ticker/ethusdt@ticker/bnbusdt@ticker/adausdt@ticker/solusdt@ticker/dotusdt@ticker/linkusdt@ticker/avaxusdt@ticker`
-- **Multi-stream format**: Handles stream-specific data with `stream` and `data` fields
-- **Price field**: Uses `c` field from ticker data (current price)
-- **Symbol extraction**: Extracts currency symbol from stream name
-- **Auto-reconnection**: 5-second delay on connection failures
+
+**Coinbase:**
+- **Endpoint**: `wss://ws-feed.exchange.coinbase.com`
+- **Subscription**: ticker channel for selected products
+- **Price field**: Uses `price` field from ticker data
+- **Auto-reconnection**: 5-second delay with cooldown protection
+
+**Hyperliquid:**
+- **Endpoint**: `wss://api.hyperliquid.xyz/ws`
+- **Subscription**: `allMids` channel (includes both perps AND spot prices)
+- **Price field**: Uses `mids` dictionary with symbol -> price mapping
+- **Asset types**:
+  - Perps: Simple symbols like "BTC", "ETH", "SOL"
+  - Spot: Index-based like "@1", "@2" or canonical like "PURR/USDC"
+- **Auto-reconnection**: 5-second delay with cooldown protection
 
 ## Project Structure
 
@@ -110,15 +120,23 @@ open "dist/Bitcoin Price Tracker.app"
 
 ## Development Notes
 
-### Supported Cryptocurrencies
-- **Bitcoin (BTC)**: ₿ emoji, BTCUSDT symbol
-- **Ethereum (ETH)**: Ξ emoji, ETHUSDT symbol  
-- **BNB**: 🔸 emoji, BNBUSDT symbol
-- **Cardano (ADA)**: 🅰️ emoji, ADAUSDT symbol
-- **Solana (SOL)**: ◎ emoji, SOLUSDT symbol
-- **Polkadot (DOT)**: 🔴 emoji, DOTUSDT symbol
-- **Chainlink (LINK)**: 🔗 emoji, LINKUSDT symbol
-- **Avalanche (AVAX)**: 🔺 emoji, AVAXUSDT symbol
+### Data Sources
+
+**Coinbase:**
+- ~360 USD trading pairs
+- Real-time WebSocket ticker updates
+- 24h price change data
+
+**Hyperliquid Perps:**
+- ~228 perpetual contracts
+- Real-time via `allMids` WebSocket
+- Major cryptos: BTC, ETH, SOL, etc.
+
+**Hyperliquid Spot:**
+- ~277 spot trading pairs
+- Shares same WebSocket as perps (`allMids`)
+- Includes HIP-1 tokens like PURR, HFUN, JEFF, etc.
+- Canonical pairs (e.g., "PURR/USDC") and index pairs (e.g., "@1")
 
 ### Status Bar Application Pattern
 This is a menu bar app (LSUIElement = true) with no dock icon. The app lives entirely in the status bar and provides a dropdown menu for cryptocurrency selection and price viewing. The status bar displays the currently selected cryptocurrency with its emoji and price.

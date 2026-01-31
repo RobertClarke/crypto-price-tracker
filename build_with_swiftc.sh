@@ -71,6 +71,15 @@ cat > "$APP_BUNDLE/Contents/Info.plist" << EOF
                 <key>NSExceptionRequiresForwardSecrecy</key>
                 <false/>
             </dict>
+            <key>api.hyperliquid.xyz</key>
+            <dict>
+                <key>NSExceptionAllowsInsecureHTTPLoads</key>
+                <false/>
+                <key>NSExceptionMinimumTLSVersion</key>
+                <string>TLSv1.2</string>
+                <key>NSExceptionRequiresForwardSecrecy</key>
+                <false/>
+            </dict>
         </dict>
     </dict>
     <key>NSHumanReadableCopyright</key>
